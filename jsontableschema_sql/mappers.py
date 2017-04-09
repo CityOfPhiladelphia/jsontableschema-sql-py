@@ -8,7 +8,40 @@ import six
 from sqlalchemy import (
     Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index,
     Text, VARCHAR,  Float, Integer, Boolean, Date, Time, DateTime)
+from sqlalchemy.types import UserDefinedType
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
+from geoalchemy2 import Geometry
+
+class GeoJSON(Geometry):
+    from_text = 'ST_GeomFromGeoJSON'
+
+    as_binary = 'ST_AsGeoJSON'
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            return value
+        return process
+
+class OracleSDE(UserDefinedType):
+    def get_col_spec(self):
+        return 'sde.st_geometry'
+
+    def column_expression(self, col):
+        return 'sde.st_astext(%s)' % col # sde.st_asbinary ?
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            print(value)
+            return value
+        return process
+
+    def bind_expression(self, bindvalue):
+        return 'sde.st_geomfromtext(%s)' % bindvalue # sde.st_geomfromwkb ?
+
+    def bind_processor(self, dialect):
+        def process(bindvalue):
+            return bindvalue
+        return process
 
 # Module API
 
@@ -50,7 +83,7 @@ def descriptor_to_columns_and_constraints(prefix, bucket, descriptor,
         'date': Date,
         'time': Time,
         'datetime': DateTime,
-        'geojson': JSONB,
+        'geojson': GeoJSON,
     }
 
     if autoincrement is not None:

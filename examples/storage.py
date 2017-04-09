@@ -9,7 +9,7 @@ import io
 import json
 from tabulator import topen
 from sqlalchemy import create_engine
-from dotenv import load_dotenv; load_dotenv('.env')
+#from dotenv import load_dotenv; load_dotenv('.env')
 
 from jsontableschema_sql import Storage
 
@@ -27,18 +27,20 @@ engine = create_engine(os.environ['DATABASE_URL'])
 storage = Storage(engine=engine, prefix='prefix_')
 
 # Delete tables
-for table in reversed(storage.tables):
+for table in reversed(storage.buckets):
     storage.delete(table)
 
 # Create tables
 storage.create(['articles', 'comments'], [articles_schema, comments_schema])
+
+print(articles_data)
 
 # Write data to tables
 storage.write('articles', articles_data)
 storage.write('comments', comments_data)
 
 # List tables
-print(storage.tables)
+print(storage.buckets)
 
 # Describe tables
 print(storage.describe('articles'))

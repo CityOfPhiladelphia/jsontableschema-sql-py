@@ -100,10 +100,11 @@ class StorageWriter(object):
         keyed_row = {}
         for index, field in enumerate(schema.fields):
             value = row[index]
-            try:
-                value = field.cast_value(value)
-            except InvalidObjectType:
-                value = json.loads(value)
+            if field.type != 'geojson':
+                try:
+                    value = field.cast_value(value)
+                except InvalidObjectType:
+                    value = json.loads(value)
             keyed_row[field.name] = value
 
         return keyed_row
