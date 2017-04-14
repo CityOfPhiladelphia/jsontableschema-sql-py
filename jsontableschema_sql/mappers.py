@@ -28,9 +28,7 @@ from geomet import wkt
 #             return value
 #         return process
 
-class FromTextFunction(expression.Function):
-    """Represents a Geometry value expressed as text."""
-
+class STGeomFromText(expression.Function):
     def __init__(self, desc, srid=4326):
         self.desc = desc
         self.srid = srid
@@ -40,9 +38,7 @@ class FromTextFunction(expression.Function):
                                      srid,
                                      type_=String)
 
-class ToTextFunction(expression.Function):
-    """Represents a Geometry value expressed as text."""
-
+class STAsText(expression.Function):
     def __init__(self, desc, srid=4326):
         self.desc = desc
         expression.Function.__init__(self,
@@ -55,7 +51,7 @@ class OracleSDE(UserDefinedType):
         return 'SDE.ST_GEOMETRY'
 
     def column_expression(self, col):
-        return ToTextFunction(col)
+        return STAsText(col)
 
     def result_processor(self, dialect, coltype):
         def process(value):
@@ -63,7 +59,7 @@ class OracleSDE(UserDefinedType):
         return process
 
     def bind_expression(self, bindvalue):
-        return FromTextFunction(bindvalue) # sde.st_geomfromwkb ?
+        return STGeomFromText(bindvalue) # sde.st_geomfromwkb ?
 
     def bind_processor(self, dialect):
         def process(bindvalue):
