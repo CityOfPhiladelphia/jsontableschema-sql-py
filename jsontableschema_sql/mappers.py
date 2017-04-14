@@ -13,58 +13,73 @@ from sqlalchemy import (
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.sql import expression
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
-from geomet import wkt
 
-# TODO: add logic to determine whether to load geoalhemy2
-#from geoalchemy2 import Geometry
+geometry_type = JSONB
 
-# class GeoJSON(Geometry):
-#     from_text = 'ST_GeomFromGeoJSON'
+def load_postgis_support():
+    global geometry_type
 
-#     as_binary = 'ST_AsGeoJSON'
+    from geoalchemy2 import Geometry
 
-#     def result_processor(self, dialect, coltype):
-#         def process(value):
-#             return value
-#         return process
+    class GeoJSON(Geometry):
+        from_text = 'ST_GeomFromGeoJSON'
 
-class STGeomFromText(expression.Function):
-    def __init__(self, desc, srid=4326):
-        self.desc = desc
-        self.srid = srid
-        expression.Function.__init__(self,
-                                     "sde.st_geomfromtext",
-                                     desc,
-                                     srid,
-                                     type_=String)
+        as_binary = 'ST_AsGeoJSON'
 
-class STAsText(expression.Function):
-    def __init__(self, desc, srid=4326):
-        self.desc = desc
-        expression.Function.__init__(self,
-                                     "sde.st_astext",
-                                     desc,
-                                     type_=OracleSDE)
+        def result_processor(self, dialect, coltype):
+            def process(value):
+                return value
+            return process
 
-class OracleSDE(UserDefinedType):
-    def get_col_spec(self):
-        return 'SDE.ST_GEOMETRY'
+    geometry_type = GeoJSON
 
-    def column_expression(self, col):
-        return STAsText(col)
+## TODO: oracle unicode?
+## TODO: oracle time?
 
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            return wkt.load(value)
-        return process
+def load_sde_support():
+    global geometry_type
 
-    def bind_expression(self, bindvalue):
-        return STGeomFromText(bindvalue) # sde.st_geomfromwkb ?
+    from geomet import wkt
 
-    def bind_processor(self, dialect):
-        def process(bindvalue):
-            return wkt.dumps(json.loads(bindvalue))
-        return process
+    class STGeomFromText(expression.Function):
+        def __init__(self, desc, srid=4326):
+            self.desc = desc
+            self.srid = srid
+            expression.Function.__init__(self,
+                                         "sde.st_geomfromtext",
+                                         desc,
+                                         srid,
+                                         type_=String)
+
+    class STAsText(expression.Function):
+        def __init__(self, desc, srid=4326):
+            self.desc = desc
+            expression.Function.__init__(self,
+                                         "sde.st_astext",
+                                         desc,
+                                         type_=SDE)
+
+    class SDE(UserDefinedType):
+        def get_col_spec(self):
+            return 'SDE.ST_GEOMETRY'
+
+        def column_expression(self, col):
+            return STAsText(col)
+
+        def result_processor(self, dialect, coltype):
+            def process(value):
+                return wkt.load(value)
+            return process
+
+        def bind_expression(self, bindvalue):
+            return STGeomFromText(bindvalue)
+
+        def bind_processor(self, dialect):
+            def process(bindvalue):
+                return wkt.dumps(json.loads(bindvalue))
+            return process
+
+    geometry_type = SDE
 
 # Module API
 
@@ -106,7 +121,7 @@ def descriptor_to_columns_and_constraints(prefix, bucket, descriptor,
         'date': Date,
         'time': Time,
         'datetime': DateTime,
-        'geojson': OracleSDE,
+        'geojson': geometry_type,
     }
 
     if autoincrement is not None:

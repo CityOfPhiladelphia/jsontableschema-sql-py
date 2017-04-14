@@ -25,12 +25,14 @@ class Storage(object):
         prefix (str): prefix for all buckets
         reflect_only (callable): a boolean predicate to filter
             the list of table names when reflecting
+        geometry_support (str): Whether to use a geometry column for geojson type.
+            Can be `postgis` or `sde`.
     """
 
     # Public
 
     def __init__(self, engine, dbschema=None, prefix='', reflect_only=None,
-                 autoincrement=None):
+                 autoincrement=None, geometry_support=None):
 
         # Set attributes
         self.__connection = engine.connect()
@@ -38,6 +40,7 @@ class Storage(object):
         self.__prefix = prefix
         self.__descriptors = {}
         self.__autoincrement = autoincrement
+        self.__geometry_support = geometry_support
         if reflect_only is not None:
             self.__only = reflect_only
         else:
@@ -48,6 +51,13 @@ class Storage(object):
             bind=self.__connection,
             schema=self.__dbschema)
         self.__reflect()
+
+        # Load GIS
+
+        if self.__geometry_support == 'postgis':
+            mappers.load_postgis_support()
+        elif self.__geometry_support == 'sde':
+            mappers.load_sde_support()
 
     def __repr__(self):
 
