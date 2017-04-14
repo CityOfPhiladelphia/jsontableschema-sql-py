@@ -4,43 +4,70 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import json
+
 import six
 from sqlalchemy import (
     Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index,
-    Text, VARCHAR,  Float, Integer, Boolean, Date, Time, DateTime)
+    Text, String, VARCHAR,  Float, Integer, Boolean, Date, Time, DateTime)
 from sqlalchemy.types import UserDefinedType
+from sqlalchemy.sql import expression
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
-from geoalchemy2 import Geometry
+from geomet import wkt
 
-class GeoJSON(Geometry):
-    from_text = 'ST_GeomFromGeoJSON'
+# TODO: add logic to determine whether to load geoalhemy2
+#from geoalchemy2 import Geometry
 
-    as_binary = 'ST_AsGeoJSON'
+# class GeoJSON(Geometry):
+#     from_text = 'ST_GeomFromGeoJSON'
 
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            return value
-        return process
+#     as_binary = 'ST_AsGeoJSON'
+
+#     def result_processor(self, dialect, coltype):
+#         def process(value):
+#             return value
+#         return process
+
+class FromTextFunction(expression.Function):
+    """Represents a Geometry value expressed as text."""
+
+    def __init__(self, desc, srid=4326):
+        self.desc = desc
+        self.srid = srid
+        expression.Function.__init__(self,
+                                     "sde.st_geomfromtext",
+                                     desc,
+                                     srid,
+                                     type_=String)
+
+class ToTextFunction(expression.Function):
+    """Represents a Geometry value expressed as text."""
+
+    def __init__(self, desc, srid=4326):
+        self.desc = desc
+        expression.Function.__init__(self,
+                                     "sde.st_astext",
+                                     desc,
+                                     type_=OracleSDE)
 
 class OracleSDE(UserDefinedType):
     def get_col_spec(self):
-        return 'sde.st_geometry'
+        return 'SDE.ST_GEOMETRY'
 
     def column_expression(self, col):
-        return 'sde.st_astext(%s)' % col # sde.st_asbinary ?
+        return ToTextFunction(col)
 
     def result_processor(self, dialect, coltype):
         def process(value):
-            print(value)
-            return value
+            return wkt.load(value)
         return process
 
     def bind_expression(self, bindvalue):
-        return 'sde.st_geomfromtext(%s)' % bindvalue # sde.st_geomfromwkb ?
+        return FromTextFunction(bindvalue) # sde.st_geomfromwkb ?
 
     def bind_processor(self, dialect):
         def process(bindvalue):
-            return bindvalue
+            return wkt.dumps(json.loads(bindvalue))
         return process
 
 # Module API
@@ -83,7 +110,7 @@ def descriptor_to_columns_and_constraints(prefix, bucket, descriptor,
         'date': Date,
         'time': Time,
         'datetime': DateTime,
-        'geojson': GeoJSON,
+        'geojson': OracleSDE,
     }
 
     if autoincrement is not None:
