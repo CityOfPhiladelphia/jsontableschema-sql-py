@@ -32,7 +32,7 @@ class Storage(object):
     # Public
 
     def __init__(self, engine, dbschema=None, prefix='', reflect_only=None,
-                 autoincrement=None, geometry_support=None):
+                 autoincrement=None, geometry_support=None, views=False):
 
         # Set attributes
         self.__connection = engine.connect()
@@ -41,6 +41,7 @@ class Storage(object):
         self.__descriptors = {}
         self.__autoincrement = autoincrement
         self.__geometry_support = geometry_support
+        self.__views = views
         if reflect_only is not None:
             self.__only = reflect_only
         else:
@@ -248,4 +249,4 @@ class Storage(object):
             )
             return ret
 
-        self.__metadata.reflect(only=only)
+        self.__metadata.reflect(only=only, views=self.__views)

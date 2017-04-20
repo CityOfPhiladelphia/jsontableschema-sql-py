@@ -52,7 +52,7 @@ def load_sde_support():
                                          type_=String)
 
     class STAsText(expression.Function):
-        def __init__(self, desc, srid=4326):
+        def __init__(self, desc):
             self.desc = desc
             expression.Function.__init__(self,
                                          "sde.st_astext",
@@ -72,10 +72,12 @@ def load_sde_support():
             return process
 
         def bind_expression(self, bindvalue):
+            ## TODO: pass srid
             return STGeomFromText(bindvalue)
 
         def bind_processor(self, dialect):
             def process(bindvalue):
+                ## TODO: inspect geojson for crs with srid?
                 return wkt.dumps(json.loads(bindvalue))
             return process
 
@@ -202,6 +204,9 @@ def columns_and_constraints_to_descriptor(prefix, tablename, columns,
         Time: 'time',
         DateTime: 'datetime',
     }
+
+    if geometry_type != JSONB:
+        mapping[geometry_type] = 'geojson'
 
     # Fields
     fields = []
