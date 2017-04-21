@@ -8,7 +8,7 @@ import json
 
 import six
 from sqlalchemy import (
-    Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index,
+    Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index, CHAR,
     Text, String, VARCHAR, NVARCHAR, Float, Integer, Boolean, Date, Time, DateTime)
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.sql import expression
@@ -198,6 +198,7 @@ def columns_and_constraints_to_descriptor(prefix, tablename, columns,
         Text: 'string',
         VARCHAR: 'string',
         NVARCHAR: 'string',
+        CHAR: 'string',
         UUID: 'string',
         Float: 'number',
         Integer: 'integer',
