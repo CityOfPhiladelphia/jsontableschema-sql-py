@@ -47,18 +47,17 @@ class Storage(object):
         else:
             self.__only = lambda _: True
 
+        # Load geometry support
+        if self.__geometry_support == 'postgis':
+            mappers.load_postgis_support()
+        elif self.__geometry_support == 'sde':
+            mappers.load_sde_support()
+
         # Create metadata
         self.__metadata = MetaData(
             bind=self.__connection,
             schema=self.__dbschema)
         self.__reflect()
-
-        # Load GIS
-
-        if self.__geometry_support == 'postgis':
-            mappers.load_postgis_support()
-        elif self.__geometry_support == 'sde':
-            mappers.load_sde_support()
 
     def __repr__(self):
 

@@ -9,7 +9,7 @@ import json
 import six
 from sqlalchemy import (
     Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index,
-    Text, String, VARCHAR,  Float, Integer, Boolean, Date, Time, DateTime)
+    Text, String, VARCHAR, NVARCHAR, Float, Integer, Boolean, Date, Time, DateTime)
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.sql import expression
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
@@ -20,6 +20,7 @@ def load_postgis_support():
     global geometry_type
 
     from geoalchemy2 import Geometry
+    from sqlalchemy.dialects.postgresql.base import ischema_names
 
     class GeoJSON(Geometry):
         from_text = 'ST_GeomFromGeoJSON'
@@ -31,6 +32,7 @@ def load_postgis_support():
                 return value
             return process
 
+    ischema_names['geometry'] = GeoJSON
     geometry_type = GeoJSON
 
 ## TODO: oracle unicode?
@@ -40,6 +42,7 @@ def load_sde_support():
     global geometry_type
 
     from geomet import wkt
+    from sqlalchemy.dialects.oracle.base import ischema_names
 
     class STGeomFromText(expression.Function):
         def __init__(self, desc, srid=4326):
@@ -81,6 +84,7 @@ def load_sde_support():
                 return wkt.dumps(json.loads(bindvalue))
             return process
 
+    ischema_names['ST_GEOMETRY'] = SDE
     geometry_type = SDE
 
 # Module API
@@ -193,6 +197,7 @@ def columns_and_constraints_to_descriptor(prefix, tablename, columns,
     mapping = {
         Text: 'string',
         VARCHAR: 'string',
+        NVARCHAR: 'string',
         UUID: 'string',
         Float: 'number',
         Integer: 'integer',
