@@ -71,7 +71,10 @@ def load_sde_support():
 
         def result_processor(self, dialect, coltype):
             def process(value):
-                return wkt.load(value)
+                out = wkt.load(value)
+                if 'coordinates' in out and len(out['coordinates']) == 0:
+                    out = None
+                return out
             return process
 
         def bind_expression(self, bindvalue):
