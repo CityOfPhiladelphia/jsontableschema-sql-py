@@ -38,7 +38,7 @@ def load_postgis_support():
 ## TODO: oracle unicode?
 ## TODO: oracle time?
 
-def load_sde_support():
+def load_sde_support(geometry_support):
     global geometry_type
 
     from geomet import wkt
@@ -62,16 +62,32 @@ def load_sde_support():
                                          desc,
                                          type_=SDE)
 
+    class ToChar(expression.Function):
+        def __init__(self, desc):
+            self.desc = desc
+            expression.Function.__init__(self,
+                                         "to_char",
+                                         desc,
+                                         type_=SDE)
+
     class SDE(UserDefinedType):
         def get_col_spec(self):
             return 'SDE.ST_GEOMETRY'
 
         def column_expression(self, col):
-            return STAsText(col)
+            if geometry_support == 'sde-char':
+                return ToChar(STAsText(col))
+            else:
+                return STAsText(col)
 
         def result_processor(self, dialect, coltype):
             def process(value):
-                out = wkt.load(value)
+                if value == 'POINT EMPTY':
+                    return None;
+                if hasattr(value, 'read'):
+                    out = wkt.load(value)
+                else:
+                    out = wkt.loads(value)
                 if 'coordinates' in out and len(out['coordinates']) == 0:
                     out = None
                 return out

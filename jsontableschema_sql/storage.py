@@ -50,8 +50,8 @@ class Storage(object):
         # Load geometry support
         if self.__geometry_support == 'postgis':
             mappers.load_postgis_support()
-        elif self.__geometry_support == 'sde':
-            mappers.load_sde_support()
+        elif self.__geometry_support in ['sde','sde-char']:
+            mappers.load_sde_support(self.__geometry_support)
 
         # Create metadata
         self.__metadata = MetaData(
