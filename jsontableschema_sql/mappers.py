@@ -82,7 +82,7 @@ def load_sde_support(geometry_support):
 
         def result_processor(self, dialect, coltype):
             def process(value):
-                if value == 'POINT EMPTY':
+                if value == '' or value == None or value == 'POINT EMPTY':
                     return None;
                 if hasattr(value, 'read'):
                     out = wkt.load(value)
