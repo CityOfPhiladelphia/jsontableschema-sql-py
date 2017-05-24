@@ -32,7 +32,7 @@ class Storage(object):
     # Public
 
     def __init__(self, engine, dbschema=None, prefix='', reflect_only=None,
-                 autoincrement=None, geometry_support=None, views=False):
+                 autoincrement=None, geometry_support=None, from_srid=None, to_srid=None, views=False):
 
         # Set attributes
         self.__connection = engine.connect()
@@ -51,7 +51,7 @@ class Storage(object):
         if self.__geometry_support == 'postgis':
             mappers.load_postgis_support()
         elif self.__geometry_support in ['sde','sde-char']:
-            mappers.load_sde_support(self.__geometry_support)
+            mappers.load_sde_support(self.__geometry_support, from_srid, to_srid)
 
         # Create metadata
         self.__metadata = MetaData(

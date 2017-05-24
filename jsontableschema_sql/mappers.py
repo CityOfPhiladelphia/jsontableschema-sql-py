@@ -5,13 +5,14 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import json
+from functools import partial
 
 import six
 from sqlalchemy import (
     Column, PrimaryKeyConstraint, ForeignKeyConstraint, Index, CHAR,
     Text, String, VARCHAR, NVARCHAR, Float, Integer, Boolean, Date, Time, DateTime)
 from sqlalchemy.types import UserDefinedType
-from sqlalchemy.sql import expression
+from sqlalchemy.sql import expression, functions
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, UUID
 
 geometry_type = JSONB
@@ -38,11 +39,30 @@ def load_postgis_support():
 ## TODO: oracle unicode?
 ## TODO: oracle time?
 
-def load_sde_support(geometry_support):
+def load_sde_support(geometry_support, from_srid, to_srid):
     global geometry_type
 
-    from geomet import wkt
     from sqlalchemy.dialects.oracle.base import ischema_names
+    import pyproj
+    from shapely.wkt import loads as shp_loads
+    from shapely.ops import transform as shp_transform
+
+    def to_geojson(shp):
+        geojson = shp.__geo_interface__
+        #geojson['crs'] = {'type':'name','properties':{'name':'EPSG:'.format(from_srid)}}
+        return json.dumps(geojson)
+
+    if from_srid and to_srid:
+        transformer = partial(
+            pyproj.transform,
+            pyproj.Proj(init='EPSG:{}'.format(from_srid), preserve_units=True),
+            pyproj.Proj(init='EPSG:{}'.format(to_srid))
+        )
+
+    def transform(wkt):
+        from_shp = shp_loads(wkt)
+        shp = shp_transform(transformer, from_shp)
+        return to_geojson(shp)
 
     class STGeomFromText(expression.Function):
         def __init__(self, desc, srid=4326):
@@ -62,6 +82,14 @@ def load_sde_support(geometry_support):
                                          desc,
                                          type_=SDE)
 
+    class STIsEmpty(expression.Function):
+        def __init__(self, desc):
+            self.desc = desc
+            expression.Function.__init__(self,
+                                         "sde.st_isempty",
+                                         desc,
+                                         type_=Integer)
+
     class ToChar(expression.Function):
         def __init__(self, desc):
             self.desc = desc
@@ -76,21 +104,26 @@ def load_sde_support(geometry_support):
 
         def column_expression(self, col):
             if geometry_support == 'sde-char':
-                return ToChar(STAsText(col))
+                else_expression = ToChar(STAsText(col))
             else:
-                return STAsText(col)
+                else_expression = STAsText(col)
+
+            case_expression = expression.case(
+                        [(STIsEmpty(col) == 1, None),
+                         (STIsEmpty(col) == 0, else_expression)])
+
+            return case_expression
 
         def result_processor(self, dialect, coltype):
             def process(value):
                 if value == '' or value == None or value == 'POINT EMPTY':
                     return None;
-                if hasattr(value, 'read'):
-                    out = wkt.load(value)
+
+                if from_srid is not None and to_srid is not None:
+                    return transform(value)
                 else:
-                    out = wkt.loads(value)
-                if 'coordinates' in out and len(out['coordinates']) == 0:
-                    out = None
-                return out
+                    shp = shp_loads(value)
+                    return to_geojson(shp)
             return process
 
         def bind_expression(self, bindvalue):
@@ -99,8 +132,8 @@ def load_sde_support(geometry_support):
 
         def bind_processor(self, dialect):
             def process(bindvalue):
-                ## TODO: inspect geojson for crs with srid?
-                return wkt.dumps(json.loads(bindvalue))
+                shp = shp_loads(bindvalue)
+                return to_geojson(shp)
             return process
 
     ischema_names['ST_GEOMETRY'] = SDE
