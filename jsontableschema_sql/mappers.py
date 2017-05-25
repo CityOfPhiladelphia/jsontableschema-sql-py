@@ -44,11 +44,12 @@ def load_sde_support(geometry_support, from_srid, to_srid):
 
     from sqlalchemy.dialects.oracle.base import ischema_names
     import pyproj
-    from shapely.wkt import loads as shp_loads
+    from shapely.wkt import loads as shp_loads, dumps as shp_dumps
+    from shapely.geometry import mapping, shape
     from shapely.ops import transform as shp_transform
 
     def to_geojson(shp):
-        geojson = shp.__geo_interface__
+        geojson = mapping(shp)
         #geojson['crs'] = {'type':'name','properties':{'name':'EPSG:'.format(from_srid)}}
         return json.dumps(geojson)
 
@@ -69,7 +70,7 @@ def load_sde_support(geometry_support, from_srid, to_srid):
             self.desc = desc
             self.srid = srid
             expression.Function.__init__(self,
-                                         "sde.st_geomfromtext",
+                                         "sde.st_geometry",
                                          desc,
                                          srid,
                                          type_=String)
@@ -99,6 +100,9 @@ def load_sde_support(geometry_support, from_srid, to_srid):
                                          type_=SDE)
 
     class SDE(UserDefinedType):
+        def get_dbapi_type(self, dbapi):
+            return dbapi.CLOB
+
         def get_col_spec(self):
             return 'SDE.ST_GEOMETRY'
 
@@ -119,6 +123,9 @@ def load_sde_support(geometry_support, from_srid, to_srid):
                 if value == '' or value == None or value == 'POINT EMPTY':
                     return None;
 
+                if geometry_support == 'sde':
+                    value = value.read()
+
                 if from_srid is not None and to_srid is not None:
                     return transform(value)
                 else:
@@ -132,8 +139,8 @@ def load_sde_support(geometry_support, from_srid, to_srid):
 
         def bind_processor(self, dialect):
             def process(bindvalue):
-                shp = shp_loads(bindvalue)
-                return to_geojson(shp)
+                shp = shape(json.loads(bindvalue))
+                return shp_dumps(shp)
             return process
 
     ischema_names['ST_GEOMETRY'] = SDE
