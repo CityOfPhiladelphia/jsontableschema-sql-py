@@ -50,7 +50,16 @@ def load_sde_support(geometry_support, from_srid, to_srid):
 
     def to_geojson(shp):
         geojson = mapping(shp)
-        #geojson['crs'] = {'type':'name','properties':{'name':'EPSG:'.format(from_srid)}}
+
+        srid = None
+        if from_srid and not to_srid:
+            srid = from_srid
+        elif to_srid:
+            srid = to_srid
+
+        if srid:
+            geojson['crs'] = {'type':'name','properties':{'name':'EPSG:'.format(srid)}}
+        
         return json.dumps(geojson)
 
     if from_srid and to_srid:
