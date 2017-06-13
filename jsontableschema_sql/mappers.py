@@ -59,7 +59,7 @@ def load_sde_support(geometry_support, from_srid, to_srid):
         else:
             srid = 4326
 
-        geojson['crs'] = {'type':'name','properties':{'name':'EPSG:'.format(srid)}}
+        geojson['crs'] = {'type':'name','properties':{'name':'EPSG:{}'.format(srid)}}
         
         return json.dumps(geojson)
 
