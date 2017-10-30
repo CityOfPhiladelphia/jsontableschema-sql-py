@@ -144,7 +144,8 @@ def load_sde_support(geometry_support, from_srid, to_srid):
             return process
 
         def bind_expression(self, bindvalue):
-            ## TODO: pass srid
+            if from_srid is not None:
+                return STGeomFromText(bindvalue, srid=from_srid)
             return STGeomFromText(bindvalue)
 
         def bind_processor(self, dialect):
